@@ -281,7 +281,7 @@ define("tinymce/tableplugin/Quirks", [
 					tableParent = table.parentNode;
 				}
 
-				allOfCellSelected =rng.startContainer.nodeType == TEXT_NODE &&
+				allOfCellSelected = rng.startContainer.nodeType == TEXT_NODE &&
 					rng.startOffset === 0 &&
 					rng.endOffset === 0 &&
 					currentCell &&
@@ -302,7 +302,7 @@ define("tinymce/tableplugin/Quirks", [
 				}
 
 				if (!currentCell) {
-					currentCell=n;
+					currentCell = n;
 				}
 
 				// Get the very last node inside the table cell
@@ -326,6 +326,31 @@ define("tinymce/tableplugin/Quirks", [
 				}
 			});
 		}
+
+		/**
+		 * Delete table if all cells are selected.
+		 */
+		function deleteTable() {
+			editor.on('keydown', function(e) {
+				if ((e.keyCode == VK.DELETE || e.keyCode == VK.BACKSPACE) && !e.isDefaultPrevented()) {
+					var table = editor.dom.getParent(editor.selection.getStart(), 'table');
+
+					if (table) {
+						var cells = editor.dom.select('td,th', table), i = cells.length;
+						while (i--) {
+							if (!editor.dom.hasClass(cells[i], 'mce-item-selected')) {
+								return;
+							}
+						}
+
+						e.preventDefault();
+						editor.execCommand('mceTableDelete');
+					}
+				}
+			});
+		}
+
+		deleteTable();
 
 		if (Env.webkit) {
 			moveWebKitSelection();

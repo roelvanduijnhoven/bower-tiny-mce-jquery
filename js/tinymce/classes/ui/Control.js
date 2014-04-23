@@ -8,6 +8,8 @@
  * Contributing: http://www.tinymce.com/contributing
  */
 
+/*eslint consistent-this:0 */
+
 /**
  * This is the base class for all controls and containers. All UI control instances inherit
  * from this one as it has the base logic needed by all of them.
@@ -28,11 +30,12 @@ define("tinymce/ui/Control", [
 	var elementIdCache = {};
 	var hasMouseWheelEventSupport = "onmousewheel" in document;
 	var hasWheelEventSupport = false;
+	var classPrefix = "mce-";
 
 	var Control = Class.extend({
 		Statics: {
-			controlIdLookup: {},
-			elementIdCache: elementIdCache
+			elementIdCache: elementIdCache,
+			classPrefix: classPrefix
 		},
 
 		isRtl: function() {
@@ -45,7 +48,7 @@ define("tinymce/ui/Control", [
 		 * @final
 		 * @field {String} classPrefix
 		 */
-		classPrefix: "mce-",
+		classPrefix: classPrefix,
 
 		/**
 		 * Constructs a new control instance with the specified settings.
@@ -70,7 +73,7 @@ define("tinymce/ui/Control", [
 			self.settings = settings = Tools.extend({}, self.Defaults, settings);
 
 			// Initial states
-			self._id = DomUtils.id();
+			self._id = settings.id || DomUtils.id();
 			self._text = self._name = '';
 			self._width = self._height = 0;
 			self._aria = {role: settings.role};
@@ -153,10 +156,10 @@ define("tinymce/ui/Control", [
 		 * @return {tinymce.ui.Control} Control instance or undefined.
 		 */
 		getParentCtrl: function(elm) {
-			var ctrl;
+			var ctrl, lookup = this.getRoot().controlIdLookup;
 
-			while (elm) {
-				ctrl = Control.controlIdLookup[elm.id];
+			while (elm && lookup) {
+				ctrl = lookup[elm.id];
 				if (ctrl) {
 					break;
 				}
@@ -438,7 +441,12 @@ define("tinymce/ui/Control", [
 		 * @method repaint
 		 */
 		repaint: function() {
-			var self = this, style, bodyStyle, rect, borderBox, borderW = 0, borderH = 0, lastRepaintRect;
+			var self = this, style, bodyStyle, rect, borderBox, borderW = 0, borderH = 0, lastRepaintRect, round;
+
+			// Use Math.round on all values on IE < 9
+			round = !document.createRange ? Math.round : function(value) {
+				return value;
+			};
 
 			style = self.getEl().style;
 			rect = self._layoutRect;
@@ -449,35 +457,35 @@ define("tinymce/ui/Control", [
 			borderH = borderBox.top + borderBox.bottom;
 
 			if (rect.x !== lastRepaintRect.x) {
-				style.left = rect.x + 'px';
+				style.left = round(rect.x) + 'px';
 				lastRepaintRect.x = rect.x;
 			}
 
 			if (rect.y !== lastRepaintRect.y) {
-				style.top = rect.y + 'px';
+				style.top = round(rect.y) + 'px';
 				lastRepaintRect.y = rect.y;
 			}
 
 			if (rect.w !== lastRepaintRect.w) {
-				style.width = (rect.w - borderW) + 'px';
+				style.width = round(rect.w - borderW) + 'px';
 				lastRepaintRect.w = rect.w;
 			}
 
 			if (rect.h !== lastRepaintRect.h) {
-				style.height = (rect.h - borderH) + 'px';
+				style.height = round(rect.h - borderH) + 'px';
 				lastRepaintRect.h = rect.h;
 			}
 
 			// Update body if needed
 			if (self._hasBody && rect.innerW !== lastRepaintRect.innerW) {
 				bodyStyle = self.getEl('body').style;
-				bodyStyle.width = (rect.innerW) + 'px';
+				bodyStyle.width = round(rect.innerW) + 'px';
 				lastRepaintRect.innerW = rect.innerW;
 			}
 
 			if (self._hasBody && rect.innerH !== lastRepaintRect.innerH) {
 				bodyStyle = bodyStyle || self.getEl('body').style;
-				bodyStyle.height = (rect.innerH) + 'px';
+				bodyStyle.height = round(rect.innerH) + 'px';
 				lastRepaintRect.innerH = rect.innerH;
 			}
 
@@ -504,7 +512,7 @@ define("tinymce/ui/Control", [
 
 				return function(e) {
 					if (!callback) {
-						self.parents().each(function(ctrl) {
+						self.parentsAndSelf().each(function(ctrl) {
 							var callbacks = ctrl.settings.callbacks;
 
 							if (callbacks && (callback = callbacks[name])) {
@@ -542,10 +550,10 @@ define("tinymce/ui/Control", [
 
 					if (nativeEvents[name]) {
 						if (!self._nativeEvents) {
-							self._nativeEvents = {name: true};
-						} else {
-							self._nativeEvents[name] = true;
+							self._nativeEvents = {};
 						}
+
+						self._nativeEvents[name] = true;
 
 						if (self._rendered) {
 							self.bindPendingEvents();
@@ -715,10 +723,10 @@ define("tinymce/ui/Control", [
 		 * @return {tinymce.ui.Collection} Collection with all parent controls.
 		 */
 		parents: function(selector) {
-			var ctrl = this, parents = new Collection();
+			var self = this, ctrl, parents = new Collection();
 
 			// Add each parent to collection
-			for (ctrl = ctrl.parent(); ctrl; ctrl = ctrl.parent()) {
+			for (ctrl = self.parent(); ctrl; ctrl = ctrl.parent()) {
 				parents.add(ctrl);
 			}
 
@@ -728,6 +736,17 @@ define("tinymce/ui/Control", [
 			}
 
 			return parents;
+		},
+
+		/**
+		 * Returns the current control and it's parents.
+		 *
+		 * @method parentsAndSelf
+		 * @param {String} selector Optional selector expression to find parents.
+		 * @return {tinymce.ui.Collection} Collection with all parent controls.
+		 */
+		parentsAndSelf: function(selector) {
+			return new Collection(this).add(this.parents(selector));
 		},
 
 		/**
@@ -1021,7 +1040,7 @@ define("tinymce/ui/Control", [
 		 * @return {tinymce.ui.Control} Current control instance.
 		 */
 		aria: function(name, value) {
-			var self = this, elm = self.getEl();
+			var self = this, elm = self.getEl(self.ariaTarget);
 
 			if (typeof(value) === "undefined") {
 				return self._aria[name];
@@ -1030,10 +1049,6 @@ define("tinymce/ui/Control", [
 			}
 
 			if (self._rendered) {
-				if (name == 'label') {
-					elm.setAttribute('aria-labeledby', self._id);
-				}
-
 				elm.setAttribute(name == 'role' ? name : 'aria-' + name, value);
 			}
 
@@ -1050,13 +1065,24 @@ define("tinymce/ui/Control", [
 		 * @return {String} Encoded and possible traslated string. 
 		 */
 		encode: function(text, translate) {
-			if (translate !== false && Control.translate) {
-				text = Control.translate(text);
+			if (translate !== false) {
+				text = this.translate(text);
 			}
 
 			return (text || '').replace(/[&<>"]/g, function(match) {
 				return '&#' + match.charCodeAt(0) + ';';
 			});
+		},
+
+		/**
+		 * Returns the translated string.
+		 *
+		 * @method translate
+		 * @param {String} text Text to translate.
+		 * @return {String} Translated string or the same as the input.
+		 */
+		translate: function(text) {
+			return Control.translate ? Control.translate(text) : text;
 		},
 
 		/**
@@ -1127,7 +1153,11 @@ define("tinymce/ui/Control", [
 				DomUtils.off(elm);
 			}
 
-			delete Control.controlIdLookup[self._id];
+			var lookup = self.getRoot().controlIdLookup;
+			if (lookup) {
+				delete lookup[self._id];
+			}
+
 			delete elementIdCache[self._id];
 
 			if (elm && elm.parentNode) {
@@ -1140,6 +1170,8 @@ define("tinymce/ui/Control", [
 
 				elm.parentNode.removeChild(elm);
 			}
+
+			self._rendered = false;
 
 			return self;
 		},
@@ -1230,7 +1262,12 @@ define("tinymce/ui/Control", [
 			}
 
 			// Add instance to lookup
-			Control.controlIdLookup[self._id] = self;
+			var root = self.getRoot();
+			if (!root.controlIdLookup) {
+				root.controlIdLookup = {};
+			}
+
+			root.controlIdLookup[self._id] = self;
 
 			for (var key in self._aria) {
 				self.aria(key, self._aria[key]);
@@ -1356,10 +1393,10 @@ define("tinymce/ui/Control", [
 				e.preventDefault();
 
 				if (e.type == "mousewheel") {
-					e.deltaY = - 1/40 * e.wheelDelta;
+					e.deltaY = -1 / 40 * e.wheelDelta;
 
 					if (e.wheelDeltaX) {
-						e.deltaX = -1/40 * e.wheelDeltaX;
+						e.deltaX = -1 / 40 * e.wheelDeltaX;
 					}
 				} else {
 					e.deltaX = 0;
@@ -1391,6 +1428,11 @@ define("tinymce/ui/Control", [
 					parents[i]._eventsRoot = eventRootCtrl;
 				}
 
+				var eventRootDelegates = eventRootCtrl._delegates;
+				if (!eventRootDelegates) {
+					eventRootDelegates = eventRootCtrl._delegates = {};
+				}
+
 				// Bind native event delegates
 				for (name in nativeEvents) {
 					if (!nativeEvents) {
@@ -1415,15 +1457,41 @@ define("tinymce/ui/Control", [
 							DomUtils.on(eventRootCtrl.getEl(), "mouseover", mouseEnterHandler);
 							eventRootCtrl._hasMouseEnter = 1;
 						}
-					} else if (!eventRootCtrl[name]) {
+					} else if (!eventRootDelegates[name]) {
 						DomUtils.on(eventRootCtrl.getEl(), name, delegate);
-						eventRootCtrl[name] = true;
+						eventRootDelegates[name] = true;
 					}
 
 					// Remove the event once it's bound
 					nativeEvents[name] = false;
 				}
 			}
+		},
+
+		getRoot: function() {
+			var ctrl = this, rootControl, parents = [];
+
+			while (ctrl) {
+				if (ctrl.rootControl) {
+					rootControl = ctrl.rootControl;
+					break;
+				}
+
+				parents.push(ctrl);
+				rootControl = ctrl;
+				ctrl = ctrl.parent();
+			}
+
+			if (!rootControl) {
+				rootControl = this;
+			}
+
+			var i = parents.length;
+			while (i--) {
+				parents[i].rootControl = rootControl;
+			}
+
+			return rootControl;
 		},
 
 		/**

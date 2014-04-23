@@ -37,7 +37,7 @@ define("tinymce/ui/GridLayout", [
 		recalc: function(container) {
 			var settings = container.settings, rows, cols, items, contLayoutRect, width, height, rect,
 				ctrlLayoutRect, ctrl, x, y, posX, posY, ctrlSettings, contPaddingBox, align, spacingH, spacingV, alignH, alignV, maxX, maxY,
-				colWidths = [], rowHeights = [], ctrlMinWidth, ctrlMinHeight, alignX, alignY, availableWidth, availableHeight;
+				colWidths = [], rowHeights = [], ctrlMinWidth, ctrlMinHeight, availableWidth, availableHeight;
 
 			// Get layout settings
 			settings = container.settings;
@@ -166,7 +166,7 @@ define("tinymce/ui/GridLayout", [
 			// Calculate new column widths based on flex values
 			var ratio = availableWidth / totalFlex;
 			for (x = 0; x < cols; x++) {
-				colWidths[x] += flexWidths ? Math.ceil(flexWidths[x] * ratio) : ratio;
+				colWidths[x] += flexWidths ? flexWidths[x] * ratio : ratio;
 			}
 
 			// Move/resize controls
@@ -187,7 +187,6 @@ define("tinymce/ui/GridLayout", [
 					ctrlSettings = ctrl.settings;
 					ctrlLayoutRect = ctrl.layoutRect();
 					width = Math.max(colWidths[x], ctrlLayoutRect.startMinWidth);
-					alignX = alignY = 0;
 					ctrlLayoutRect.x = posX;
 					ctrlLayoutRect.y = posY;
 

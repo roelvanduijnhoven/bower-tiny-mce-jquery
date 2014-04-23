@@ -9,9 +9,10 @@
  */
 
 /*global tinymce:true */
+/*eslint consistent-this:0 */
 
 tinymce.PluginManager.add('lists', function(editor) {
-	var plugin = this;
+	var self = this;
 
 	function isListNode(node) {
 		return node && (/^(OL|UL)$/).test(node.nodeName);
@@ -602,7 +603,7 @@ tinymce.PluginManager.add('lists', function(editor) {
 			}
 		}
 
-		plugin.backspaceDelete = function(isForward) {
+		self.backspaceDelete = function(isForward) {
 			function findNextCaretContainer(rng, isForward) {
 				var node = rng.startContainer, offset = rng.startOffset;
 
@@ -714,19 +715,27 @@ tinymce.PluginManager.add('lists', function(editor) {
 			var ctrl = this;
 
 			editor.on('nodechange', function() {
-				var li = editor.dom.getParent(editor.selection.getNode(), 'LI,UL,OL');
-				ctrl.disabled(li && (li.nodeName != 'LI' || isFirstChild(li)));
+				var blocks = editor.selection.getSelectedBlocks();
+				var disable = false;
+
+				for (var i = 0, l = blocks.length; !disable && i < l; i++) {
+					var tag = blocks[i].nodeName;
+
+					disable = (tag == 'LI' && isFirstChild(blocks[i]) || tag == 'UL' || tag == 'OL');
+				}
+
+				ctrl.disabled(disable);
 			});
 		}
 	});
 
 	editor.on('keydown', function(e) {
 		if (e.keyCode == tinymce.util.VK.BACKSPACE) {
-			if (plugin.backspaceDelete()) {
+			if (self.backspaceDelete()) {
 				e.preventDefault();
 			}
 		} else if (e.keyCode == tinymce.util.VK.DELETE) {
-			if (plugin.backspaceDelete(true)) {
+			if (self.backspaceDelete(true)) {
 				e.preventDefault();
 			}
 		}

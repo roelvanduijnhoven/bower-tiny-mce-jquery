@@ -17,7 +17,7 @@
 		win = window;
 
 	$.fn.tinymce = function(settings) {
-		var self = this, url, base, lang, suffix = "";
+		var self = this, url, base, lang, suffix = "", patchApplied;
 
 		// No match then just ignore the call
 		if (!self.length) {
@@ -26,7 +26,7 @@
 
 		// Get editor instance
 		if (!settings) {
-			return tinymce.get(self[0].id);
+			return window.tinymce ? tinymce.get(self[0].id) : null;
 		}
 
 		self.css('visibility', 'hidden'); // Hide textarea to avoid flicker
@@ -35,9 +35,9 @@
 			var editors = [], initCount = 0;
 
 			// Apply patches to the jQuery object, only once
-			if (applyPatch) {
+			if (!patchApplied) {
 				applyPatch();
-				applyPatch = null;
+				patchApplied = true;
 			}
 
 			// Create an editor instance for each matched node
@@ -111,7 +111,8 @@
 			if (url.indexOf('gzip') != -1) {
 				lang = settings.language || "en";
 				url = url + (/\?/.test(url) ? '&' : '?') + "js=true&core=true&suffix=" + escape(suffix) +
-					"&themes=" + escape(settings.theme || '') + "&plugins=" + escape(settings.plugins || '') + "&languages=" + (lang || '');
+					"&themes=" + escape(settings.theme || 'modern') + "&plugins=" +
+					escape(settings.plugins || '') + "&languages=" + (lang || '');
 
 				// Check if compressor script is already loaded otherwise setup a basic one
 				if (!win.tinyMCE_GZ) {
@@ -146,7 +147,7 @@
 			var script = document.createElement('script');
 			script.type = 'text/javascript';
 			script.onload = script.onreadystatechange = function(e) {
-				e = e || event;
+				e = e || window.event;
 
 				if (lazyLoading !== 2 && (e.type == 'load' || /complete|loaded/.test(script.readyState))) {
 					tinymce.dom.Event.domLoaded = 1;
@@ -264,7 +265,7 @@
 			var origFn = jQueryFn[name] = $.fn[name],
 				textProc = (name === "text");
 
-			 $.fn[name] = function(value) {
+			$.fn[name] = function(value) {
 				var self = this;
 
 				if (!containsTinyMCE(self)) {
@@ -292,7 +293,7 @@
 
 					return ret;
 				}
-			 };
+			};
 		});
 
 		// Makes it possible to use $('#id').append("content"); to append contents to the TinyMCE editor iframe
@@ -300,7 +301,7 @@
 			var origFn = jQueryFn[name] = $.fn[name],
 				prepend = (name === "prepend");
 
-			 $.fn[name] = function(value) {
+			$.fn[name] = function(value) {
 				var self = this;
 
 				if (!containsTinyMCE(self)) {
@@ -320,7 +321,7 @@
 
 					return self; // return original set for chaining
 				}
-			 };
+			};
 		});
 
 		// Makes sure that the editor instance gets properly destroyed when the parent element is removed

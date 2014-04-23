@@ -107,7 +107,11 @@ define("tinymce/EditorManager", [
 				for (var i = 0; i < scripts.length; i++) {
 					var src = scripts[i].src;
 
-					if (/tinymce(\.jquery|)(\.min|\.dev|)\.js/.test(src)) {
+					// Script types supported:
+					// tinymce.js tinymce.min.js tinymce.dev.js
+					// tinymce.jquery.js tinymce.jquery.min.js tinymce.jquery.dev.js
+					// tinymce.full.js tinymce.full.min.js tinymce.full.dev.js
+					if (/tinymce(\.full|\.jquery|)(\.min|\.dev|)\.js/.test(src)) {
 						if (src.indexOf('.min') != -1) {
 							suffix = '.min';
 						}
@@ -192,6 +196,14 @@ define("tinymce/EditorManager", [
 				return id;
 			}
 
+			function createEditor(id, settings) {
+				if (!self.get(id)) {
+					var editor = new Editor(id, settings, self);
+					editors.push(editor);
+					editor.render();
+				}
+			}
+
 			function execCallback(se, n, s) {
 				var f = se[n];
 
@@ -217,9 +229,7 @@ define("tinymce/EditorManager", [
 					// Process type specific selector
 					each(settings.types, function(type) {
 						each(DOM.select(type.selector), function(elm) {
-							var editor = new Editor(createId(elm), extend({}, settings, type), self);
-							editors.push(editor);
-							editor.render(1);
+							createEditor(createId(elm), extend({}, settings, type));
 						});
 					});
 
@@ -227,9 +237,7 @@ define("tinymce/EditorManager", [
 				} else if (settings.selector) {
 					// Process global selector
 					each(DOM.select(settings.selector), function(elm) {
-						var editor = new Editor(createId(elm), settings, self);
-						editors.push(editor);
-						editor.render(1);
+						createEditor(createId(elm), settings);
 					});
 
 					return;
@@ -240,22 +248,19 @@ define("tinymce/EditorManager", [
 					case "exact":
 						l = settings.elements || '';
 
-						if(l.length > 0) {
+						if (l.length > 0) {
 							each(explode(l), function(v) {
 								if (DOM.get(v)) {
 									editor = new Editor(v, settings, self);
 									editors.push(editor);
-									editor.render(true);
+									editor.render();
 								} else {
 									each(document.forms, function(f) {
 										each(f.elements, function(e) {
 											if (e.name === v) {
 												v = 'mce_editor_' + instanceCounter++;
 												DOM.setAttrib(e, 'id', v);
-
-												editor = new Editor(v, settings, self);
-												editors.push(editor);
-												editor.render(1);
+												createEditor(v, settings);
 											}
 										});
 									});
@@ -272,9 +277,7 @@ define("tinymce/EditorManager", [
 							}
 
 							if (!settings.editor_selector || hasClass(elm, settings.editor_selector)) {
-								editor = new Editor(createId(elm), settings, self);
-								editors.push(editor);
-								editor.render(true);
+								createEditor(createId(elm), settings);
 							}
 						});
 						break;
@@ -332,11 +335,11 @@ define("tinymce/EditorManager", [
 		 * });
 		 */
 		get: function(id) {
-			if (id === undefined) {
+			if (!arguments.length) {
 				return this.editors;
 			}
 
-			return this.editors[id];
+			return id in this.editors ? this.editors[id] : null;
 		},
 
 		/**

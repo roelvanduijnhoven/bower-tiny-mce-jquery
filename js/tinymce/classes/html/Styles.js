@@ -29,6 +29,7 @@
 define("tinymce/html/Styles", [], function() {
 	return function(settings, schema) {
 		/*jshint maxlen:255 */
+		/*eslint max-len:0 */
 		var rgbRegExp = /rgb\s*\(\s*([0-9]+)\s*,\s*([0-9]+)\s*,\s*([0-9]+)\s*\)/gi,
 			urlOrStrRegExp = /(?:url(?:(?:\(\s*\"([^\"]+)\"\s*\))|(?:\(\s*\'([^\']+)\'\s*\))|(?:\(\s*([^)\s]+)\s*\))))|(?:\'([^\']+)\')|(?:\"([^\"]+)\")/gi,
 			styleRegExp = /\s*([^:]+):\s*([^;]+);?/g,
@@ -78,38 +79,42 @@ define("tinymce/html/Styles", [], function() {
 				var styles = {}, matches, name, value, isEncoded, urlConverter = settings.url_converter;
 				var urlConverterScope = settings.url_converter_scope || this;
 
-				function compress(prefix, suffix) {
+				function compress(prefix, suffix, noJoin) {
 					var top, right, bottom, left;
 
-					// IE 11 will produce a border-image: none when getting the style attribute from <p style="border: 1px solid red"></p>
-					// So lets asume it shouldn't be there
-					if (styles['border-image'] === 'none') {
-						delete styles['border-image'];
-					}
-
-					// Get values and check it it needs compressing
 					top = styles[prefix + '-top' + suffix];
 					if (!top) {
 						return;
 					}
 
 					right = styles[prefix + '-right' + suffix];
-					if (top != right) {
+					if (!right) {
 						return;
 					}
 
 					bottom = styles[prefix + '-bottom' + suffix];
-					if (right != bottom) {
+					if (!bottom) {
 						return;
 					}
 
 					left = styles[prefix + '-left' + suffix];
-					if (bottom != left) {
+					if (!left) {
 						return;
 					}
 
-					// Compress
-					styles[prefix + suffix] = left;
+					var box = [top, right, bottom, left];
+					i = box.length - 1;
+					while (i--) {
+						if (box[i] !== box[i + 1]) {
+							break;
+						}
+					}
+
+					if (i > -1 && noJoin) {
+						return;
+					}
+
+					styles[prefix + suffix] = i == -1 ? box[0] : box.join(' ');
 					delete styles[prefix + '-top' + suffix];
 					delete styles[prefix + '-right' + suffix];
 					delete styles[prefix + '-bottom' + suffix];
@@ -122,7 +127,7 @@ define("tinymce/html/Styles", [], function() {
 				function canCompress(key) {
 					var value = styles[key], i;
 
-					if (!value || value.indexOf(' ') < 0) {
+					if (!value) {
 						return;
 					}
 
@@ -197,8 +202,16 @@ define("tinymce/html/Styles", [], function() {
 
 					url = decode(url || url2 || url3);
 
-					if (!settings.allow_script_urls && /(java|vb)script:/i.test(url.replace(/[\s\r\n]+/, ''))) {
-						return "";
+					if (!settings.allow_script_urls) {
+						var scriptUrl = url.replace(/[\s\r\n]+/, '');
+
+						if (/(java|vb)script:/i.test(scriptUrl)) {
+							return "";
+						}
+
+						if (!settings.allow_svg_data_urls && /^data:image\/svg/i.test(scriptUrl)) {
+							return "";
+						}
 					}
 
 					// Convert the URL to relative/absolute depending on config
@@ -223,8 +236,16 @@ define("tinymce/html/Styles", [], function() {
 						name = matches[1].replace(trimRightRegExp, '').toLowerCase();
 						value = matches[2].replace(trimRightRegExp, '');
 
+						// Decode escaped sequences like \65 -> e
+						/*jshint loopfunc:true*/
+						/*eslint no-loop-func:0 */ 
+						value = value.replace(/\\[0-9a-f]+/g, function(e) {
+							return String.fromCharCode(parseInt(e.substr(1), 16));
+						});
+
 						if (name && value.length > 0) {
-							if (!settings.allow_script_urls && (name == "behavior" || /expression\s*\(/.test(value))) {
+							// Don't allow behavior name or expression/comments within the values
+							if (!settings.allow_script_urls && (name == "behavior" || /expression\s*\(|\/\*|\*\//.test(value))) {
 								continue;
 							}
 
@@ -245,9 +266,8 @@ define("tinymce/html/Styles", [], function() {
 
 						styleRegExp.lastIndex = matches.index + matches[0].length;
 					}
-
 					// Compress the styles to reduce it's size for example IE will expand styles
-					compress("border", "");
+					compress("border", "", true);
 					compress("border", "-width");
 					compress("border", "-color");
 					compress("border", "-style");
@@ -258,6 +278,12 @@ define("tinymce/html/Styles", [], function() {
 					// Remove pointless border, IE produces these
 					if (styles.border === 'medium none') {
 						delete styles.border;
+					}
+
+					// IE 11 will produce a border-image: none when getting the style attribute from <p style="border: 1px solid red"></p>
+					// So lets asume it shouldn't be there
+					if (styles['border-image'] === 'none') {
+						delete styles['border-image'];
 					}
 				}
 
