@@ -432,7 +432,7 @@ define("tinymce/tableplugin/TableGrid", [
 						cell = grid[y][x].elm;
 
 						/*jshint loopfunc:true */
-						/*eslint loop-func:0 */
+						/*eslint no-loop-func:0 */
 						if (cell != startCell) {
 							// Move children to startCell
 							children = Tools.grep(cell.childNodes);
@@ -1449,8 +1449,9 @@ define("tinymce/tableplugin/CellSelection", [
 			}
 		});
 
-		editor.on('KeyUp', function() {
+		editor.on('KeyUp Drop', function() {
 			clear();
+			startCell = tableGrid = startTable = null;
 		});
 
 		return {
@@ -1513,7 +1514,7 @@ define("tinymce/tableplugin/Plugin", [
 			each('top middle bottom'.split(' '), function(name) {
 				editor.formatter.remove('valign' + name, {}, elm);
 			});
-		}			
+		}
 
 		function tableDialog() {
 			var dom = editor.dom, tableElm, colsCtrl, rowsCtrl, data;
@@ -1774,8 +1775,7 @@ define("tinymce/tableplugin/Plugin", [
 							unApplyVAlign(cellElm);
 							if (data.valign) {
 								editor.formatter.apply('valign' + data.valign, {}, cellElm);
-							}								
-							
+							}
 						});
 
 						editor.focus();
