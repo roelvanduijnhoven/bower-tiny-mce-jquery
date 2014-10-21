@@ -74,7 +74,7 @@ define("tinymce/WindowManager", [
 		self.open = function(args, params) {
 			var win;
 
-			editor.editorManager.activeEditor = editor;
+			editor.editorManager.setActive(editor);
 
 			args.title = args.title || ' ';
 
@@ -118,7 +118,9 @@ define("tinymce/WindowManager", [
 					}
 				}
 
-				editor.focus();
+				if (!windows.length) {
+					editor.focus();
+				}
 			});
 
 			// Handle data
@@ -139,7 +141,9 @@ define("tinymce/WindowManager", [
 			win.params = params || {};
 
 			// Takes a snapshot in the FocusManager of the selection before focus is lost to dialog
-			editor.nodeChanged();
+			if (windows.length === 1) {
+				editor.nodeChanged();
+			}
 
 			return win.renderTo().reflow();
 		};

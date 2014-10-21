@@ -476,7 +476,7 @@ define("tinymce/dom/Selection", [
 		getRng: function(w3c) {
 			var self = this, selection, rng, elm, doc = self.win.document, ieRng;
 
-			function tryCompareBounderyPoints(how, sourceRange, destinationRange) {
+			function tryCompareBoundaryPoints(how, sourceRange, destinationRange) {
 				try {
 					return sourceRange.compareBoundaryPoints(how, destinationRange);
 				} catch (ex) {
@@ -556,8 +556,8 @@ define("tinymce/dom/Selection", [
 			}
 
 			if (self.selectedRange && self.explicitRange) {
-				if (tryCompareBounderyPoints(rng.START_TO_START, rng, self.selectedRange) === 0 &&
-					tryCompareBounderyPoints(rng.END_TO_END, rng, self.selectedRange) === 0) {
+				if (tryCompareBoundaryPoints(rng.START_TO_START, rng, self.selectedRange) === 0 &&
+					tryCompareBoundaryPoints(rng.END_TO_END, rng, self.selectedRange) === 0) {
 					// Safari, Opera and Chrome only ever select text which causes the range to change.
 					// This lets us use the originally set range if the selection hasn't been changed by the user.
 					rng = self.explicitRange;
@@ -578,6 +578,10 @@ define("tinymce/dom/Selection", [
 		 */
 		setRng: function(rng, forward) {
 			var self = this, sel;
+
+			if (!rng) {
+				return;
+			}
 
 			// Is IE specific range
 			if (rng.select) {
@@ -896,6 +900,30 @@ define("tinymce/dom/Selection", [
 			if (y < viewPort.y || y + 25 > viewPortY + viewPortH) {
 				self.editor.getWin().scrollTo(0, y < viewPortY ? y : y - viewPortH + 25);
 			}
+		},
+
+		placeCaretAt: function(clientX, clientY) {
+			var doc = this.editor.getDoc(), rng, point;
+
+			if (doc.caretPositionFromPoint) {
+				point = doc.caretPositionFromPoint(clientX, clientY);
+				rng = doc.createRange();
+				rng.setStart(point.offsetNode, point.offset);
+				rng.collapse(true);
+			} else if (doc.caretRangeFromPoint) {
+				rng = doc.caretRangeFromPoint(clientX, clientY);
+			} else if (doc.body.createTextRange) {
+				rng = doc.body.createTextRange();
+
+				try {
+					rng.moveToPoint(clientX, clientY);
+					rng.collapse(true);
+				} catch (ex) {
+					rng.collapse(clientY < doc.body.clientHeight);
+				}
+			}
+
+			this.setRng(rng);
 		},
 
 		_moveEndPoint: function(rng, node, start) {

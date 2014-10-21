@@ -387,12 +387,7 @@ define("tinymce/util/Quirks", [
 		 * This selects the whole body so that backspace/delete logic will delete everything
 		 */
 		function selectAll() {
-			editor.on('keydown', function(e) {
-				if (!isDefaultPrevented(e) && e.keyCode == 65 && VK.metaKeyPressed(e)) {
-					e.preventDefault();
-					editor.execCommand('SelectAll');
-				}
-			});
+			editor.shortcuts.add('ctrl+a', null, 'SelectAll');
 		}
 
 		/**
@@ -414,10 +409,17 @@ define("tinymce/util/Quirks", [
 				});
 
 				// Case 2 IME doesn't initialize if you click the documentElement it also doesn't properly fire the focusin event
-				dom.bind(editor.getDoc(), 'mousedown', function(e) {
+				// Needs to be both down/up due to weird rendering bug on Chrome Windows
+				dom.bind(editor.getDoc(), 'mousedown mouseup', function(e) {
 					if (e.target == editor.getDoc().documentElement) {
 						editor.getBody().focus();
-						selection.setRng(selection.getRng());
+
+						if (e.type == 'mousedown') {
+							// Edge case for mousedown, drag select and mousedown again within selection on Chrome Windows to render caret
+							selection.placeCaretAt(e.clientX, e.clientY);
+						} else {
+							selection.setRng(selection.getRng());
+						}
 					}
 				});
 			}
@@ -489,17 +491,20 @@ define("tinymce/util/Quirks", [
 		 */
 		function selectControlElements() {
 			editor.on('click', function(e) {
-				e = e.target;
+				var target = e.target;
 
 				// Workaround for bug, http://bugs.webkit.org/show_bug.cgi?id=12250
 				// WebKit can't even do simple things like selecting an image
-				// Needs tobe the setBaseAndExtend or it will fail to select floated images
-				if (/^(IMG|HR)$/.test(e.nodeName)) {
-					selection.getSel().setBaseAndExtent(e, 0, e, 1);
+				// Needs to be the setBaseAndExtend or it will fail to select floated images
+				if (/^(IMG|HR)$/.test(target.nodeName)) {
+					e.preventDefault();
+					selection.getSel().setBaseAndExtent(target, 0, target, 1);
+					editor.nodeChanged();
 				}
 
-				if (e.nodeName == 'A' && dom.hasClass(e, 'mce-item-anchor')) {
-					selection.select(e);
+				if (target.nodeName == 'A' && dom.hasClass(target, 'mce-item-anchor')) {
+					e.preventDefault();
+					selection.select(target);
 				}
 			});
 		}
@@ -1132,6 +1137,14 @@ define("tinymce/util/Quirks", [
 					});
 
 					args = editor.fire('click', args);
+
+					if (!args.isDefaultPrevented()) {
+						// iOS WebKit can't place the caret properly once
+						// you bind touch events so we need to do this manually
+						// TODO: Expand to the closest word? Touble tap still works.
+						editor.selection.placeCaretAt(endTouch.clientX, endTouch.clientY);
+						editor.nodeChanged();
+					}
 				});
 			});
 		}

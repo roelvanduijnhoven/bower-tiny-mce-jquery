@@ -635,6 +635,10 @@ define("tinymce/Editor", [
 				bodyClass = bodyClass[self.id] || '';
 			}
 
+			if (settings.content_security_policy) {
+				self.iframeHTML += '<meta http-equiv="Content-Security-Policy" content="' + settings.content_security_policy + '" />';
+			}
+
 			self.iframeHTML += '</head><body id="' + bodyId +
 				'" class="mce-content-body ' + bodyClass +
 				'" data-id="' + self.id + '"><br></body></html>';
@@ -673,7 +677,7 @@ define("tinymce/Editor", [
 				self.fire("load");
 			};
 
-			DOM.setAttrib("src", url || 'javascript:""');
+			DOM.setAttrib(ifr, "src", url || 'javascript:""');
 
 			self.contentAreaContainer = o.iframeContainer;
 			self.iframeElement = ifr;
@@ -1024,7 +1028,7 @@ define("tinymce/Editor", [
 		 * @param {Boolean} skipFocus Skip DOM focus. Just set is as the active editor.
 		 */
 		focus: function(skipFocus) {
-			var oed, self = this, selection = self.selection, contentEditable = self.settings.content_editable, rng;
+			var self = this, selection = self.selection, contentEditable = self.settings.content_editable, rng;
 			var controlElm, doc = self.getDoc(), body;
 
 			if (!skipFocus) {
@@ -1078,15 +1082,7 @@ define("tinymce/Editor", [
 				}
 			}
 
-			if (self.editorManager.activeEditor != self) {
-				if ((oed = self.editorManager.activeEditor)) {
-					oed.fire('deactivate', {relatedTarget: self});
-				}
-
-				self.fire('activate', {relatedTarget: oed});
-			}
-
-			self.editorManager.activeEditor = self;
+			self.editorManager.setActive(self);
 		},
 
 		/**

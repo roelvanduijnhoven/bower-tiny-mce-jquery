@@ -596,7 +596,7 @@ define("tinymce/dom/DomQuery", [
 						self[i].innerHTML = value;
 					}
 				} catch (ex) {
-					// Workaround for "Unkown runtime error" when DIV is added to P on IE
+					// Workaround for "Unknown runtime error" when DIV is added to P on IE
 					DomQuery(self[i]).empty().append(value);
 				}
 
@@ -1187,8 +1187,16 @@ define("tinymce/dom/DomQuery", [
 		text: Sizzle.getText,
 		contains: Sizzle.contains,
 		filter: function(expr, elems, not) {
+			var i = elems.length;
+
 			if (not) {
 				expr = ":not(" + expr + ")";
+			}
+
+			while (i--) {
+				if (elems[i].nodeType != 1) {
+					elems.splice(i, 1);
+				}
 			}
 
 			if (elems.length === 1) {
