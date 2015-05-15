@@ -154,6 +154,14 @@
 			}
 		} else {
 			evt = chr;
+
+			if (evt.charCode) {
+				chr = String.fromCharCode(evt.charCode);
+			}
+
+			if (evt.keyCode) {
+				keyCode = evt.keyCode;
+			}
 		}
 
 		evt = evt || {keyCode: keyCode, charCode: charCode};
@@ -292,7 +300,7 @@
 		ok(true);
 	}
 
-	function getFontmostWindow() {
+	function getFrontmostWindow() {
 		return editor.windowManager.windows[editor.windowManager.windows.length - 1];
 	}
 
@@ -360,6 +368,18 @@
 		}
 	}
 
+	function triggerElementChange(element){
+		var evt;
+
+		if ("createEvent" in document) {
+			evt = document.createEvent("HTMLEvents");
+			evt.initEvent("change", false, true);
+			element.dispatchEvent(evt);
+		} else {
+			element.fireEvent("onchange");
+		}
+	}
+
 	window.Utils = {
 		fontFace: fontFace,
 		findContainer: findContainer,
@@ -374,11 +394,12 @@
 		size: size,
 		resetScroll: resetScroll,
 		nearlyEqualRects: nearlyEqualRects,
-		getFontmostWindow: getFontmostWindow,
+		getFrontmostWindow: getFrontmostWindow,
 		pressArrowKey: pressArrowKey,
 		pressEnter: pressEnter,
 		trimBrsOnIE: trimBrsOnIE,
 		patch: patch,
-		unpatch: unpatch
+		unpatch: unpatch,
+		triggerElementChange: triggerElementChange
 	};
 })();
